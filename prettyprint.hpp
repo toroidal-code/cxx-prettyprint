@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <utility>
 #include <valarray>
+#include <sstream>
 
 namespace pretty_print
 {
@@ -92,6 +93,31 @@ namespace pretty_print
         static const type values; 
     };
 
+    template <typename T>
+    struct quoting_handler
+    {
+        static std::string toString(const T& x)
+        {
+            std::ostringstream out;
+            out << x;
+            return out.str();
+        }
+    };
+
+    template <>
+    struct quoting_handler<std::string>
+    {
+        static std::string toString(const std::string& x)
+        {
+            return '\"' + x + '\"';
+        }
+    };
+
+    template <class T>
+    std::string quote_if_necessary(const T& x)
+    {
+        return quoting_handler<T>::toString(x);
+    }
 
     // Functor to print containers. You can use this directly if you want
     // to specificy a non-default delimiters type. The printing logic can
@@ -121,12 +147,13 @@ namespace pretty_print
                 {
                     for ( ; ; )
                     {
-                        stream << *it;
+		        stream << quote_if_necessary(*it);
 
-                    if (++it == the_end) break;
+                        if (++it == the_end)
+                            break;
 
-                    if (delimiters_type::values.delimiter != NULL)
-                        stream << delimiters_type::values.delimiter;
+                        if (delimiters_type::values.delimiter != NULL)
+                            stream << delimiters_type::values.delimiter;
                     }
                 }
             }
@@ -161,10 +188,10 @@ namespace pretty_print
 
         static void print_body(const std::pair<T1, T2> & c, ostream_type & stream)
         {
-            stream << c.first;
+            stream << quote_if_necessary(c.first);
             if (print_container_helper<T, TChar, TCharTraits, TDelimiters>::delimiters_type::values.delimiter != NULL)
                 stream << print_container_helper<T, TChar, TCharTraits, TDelimiters>::delimiters_type::values.delimiter;
-            stream << c.second;
+            stream << quote_if_necessary(c.second);
         }
     };
 
@@ -191,7 +218,7 @@ namespace pretty_print
         static void tuple_print(const element_type & c, ostream_type & stream,
                                 typename std::conditional<sizeof...(Args) != 0, Int<0>, std::nullptr_t>::type)
         {
-            stream << std::get<0>(c);
+            stream << quote_if_necessary(std::get<0>(c));
             tuple_print(c, stream, Int<1>());
         }
 
@@ -201,7 +228,7 @@ namespace pretty_print
             if (print_container_helper<T, TChar, TCharTraits, TDelimiters>::delimiters_type::values.delimiter != NULL)
                 stream << print_container_helper<T, TChar, TCharTraits, TDelimiters>::delimiters_type::values.delimiter;
 
-            stream << std::get<N>(c);
+            stream << quote_if_necessary(std::get<N>(c));
 
             tuple_print(c, stream, Int<N + 1>());
         }
